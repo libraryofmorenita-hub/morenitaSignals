@@ -79,7 +79,14 @@ def fetch_page(subject: str, page: int, limit: int = 100) -> dict:
     TODO: build the params dict, call requests.get(), return .json()
     Hint: params = {"subject": subject, "limit": limit, "page": page, "fields": "key,title,author_name,subject,first_publish_year,language,edition_count"}
     """
-    pass
+    params = {
+        "subject": subject,
+        "limit": limit,
+        "page": page,
+        "fields": "key,title,author_name,subject,first_publish_year,language,edition_count"
+    }
+    response = requests.get(BASE_URL, params=params)
+    return response.json()
 
 
 def collect_subject(subject: str, max_pages: int = 5) -> list[dict]:
@@ -102,7 +109,20 @@ def collect_subject(subject: str, max_pages: int = 5) -> list[dict]:
       - Sleep 1 second between pages
       - Print progress
     """
-    pass
+    all_docs = []
+    for page in range(1, max_pages + 1):
+        data = fetch_page(subject, page)
+        docs = data.get("docs", [])
+        if not docs:
+            break
+        all_docs.extend(docs)
+        print(f"Fetched page {page} for subject '{subject}'...")
+        if page < max_pages:
+            time.sleep(1)
+    return all_docs
+  
+
+ 
 
 
 def save_raw(subject: str, docs: list[dict]) -> Path:
@@ -123,17 +143,29 @@ def save_raw(subject: str, docs: list[dict]) -> Path:
       - Use json.dump() to write the list to a .json file
       - Print how many records were saved and where
     """
-    pass
+    filename = f"open_library_{subject.replace(' ', '_')}.json"
+    file_path = RAW_DIR / filename
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(docs, f, ensure_ascii=False, indent=2)
+    print(f"Saved {len(docs)} records for subject '{subject}' to {file_path}")
+    return file_path    
+    
 
 
 def main():
     """
     Loop over all SUBJECTS, collect data, and save to disk.
-
-    TODO: call collect_subject() and save_raw() for each subject
     """
-    pass
+    for subject in SUBJECTS:
+        docs = collect_subject(subject)
+        save_raw(subject, docs)
 
 
 if __name__ == "__main__":
     main()
+    
+"""
+if __name__ == "__main__":
+    result = fetch_page("jazz", page=1)
+    print(result)
+"""
