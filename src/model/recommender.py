@@ -37,18 +37,19 @@ def build_similarity_matrix(tfidf_matrix):
 
 
 def recommend(title: str, df: pd.DataFrame, cosine_sim, n: int = 5):
+    """Return up to n (title, author, score) tuples most similar to `title`."""
     matches = df[df["title"].str.lower() == title.lower()]
     if matches.empty:
-        print(f"Book '{title}' not found.")
-        return
+        return []
 
     idx = matches.index[0]
     scores = list(enumerate(cosine_sim[idx]))
     scores = sorted(scores, key=lambda x: x[1], reverse=True)[1:n+1]
 
-    print(f"\nBooks similar to '{title}':\n")
-    for i, score in scores:
-        print(f"  {df['title'].iloc[i]} — {round(score, 3)}")
+    return [
+        (df["title"].iloc[i], df["author_name"].iloc[i], round(float(score), 3))
+        for i, score in scores
+    ]
 
 
 def main():
@@ -56,9 +57,14 @@ def main():
     tfidf_matrix = build_tfidf_matrix(df)
     cosine_sim = build_similarity_matrix(tfidf_matrix)
 
-    recommend("Blues people", df, cosine_sim)
-    recommend("Ways of Seeing", df, cosine_sim)
-    recommend("Lady sings the blues", df, cosine_sim)
+    for query in ["Blues people", "Ways of Seeing", "Lady sings the blues"]:
+        results = recommend(query, df, cosine_sim)
+        if not results:
+            print(f"Book '{query}' not found.")
+            continue
+        print(f"\nBooks similar to '{query}':\n")
+        for title_, author, score in results:
+            print(f"  {title_} — {author} — {score}")
 
 
 if __name__ == "__main__":
