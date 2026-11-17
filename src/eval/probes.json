@@ -1,0 +1,19 @@
+{
+  "_about": "Hand-written checks for cross-art-form links. A probe passes when any of the top-k bridges to another art form comes from one of the expected collections. Edit freely: add a probe whenever you see a link that should (or should not) exist.",
+  "probes": [
+    {"query": "Blues people",          "expect": ["blues", "jazz"],                         "why": "Baraka's history of Black music should reach blues and jazz musicians"},
+    {"query": "Jazz Styles",           "expect": ["jazz"],                                  "why": "a book on jazz should reach jazz musicians"},
+    {"query": "Young Man With a Horn", "expect": ["jazz"],                                  "why": "novel about a jazz trumpeter"},
+    {"query": "Things Fall Apart",     "expect": ["africa", "afrobeat"],                    "why": "Igbo novel should reach West African art or music"},
+    {"query": "Ways of Seeing",        "expect": ["visual arts", "impressionism", "africa", "india", "textiles", "folk art", "latin america"], "why": "a book about looking at art should reach artworks"},
+    {"query": "Interaction of Colour", "expect": ["visual arts", "impressionism", "textiles", "folk art"], "why": "Albers on color should reach paintings or textiles"},
+    {"query": "The Ramayana",          "expect": ["india"],                                 "why": "the epic should reach Indian art"},
+    {"query": "Haroun and the Sea of Stories", "expect": ["india"],                         "why": "Rushdie's fable should reach Indian art"},
+    {"query": "Tristes Tropiques",     "expect": ["latin america", "folk art", "cumbia", "bossa nova"], "why": "Lévi-Strauss in Brazil should reach Latin American art or music"},
+    {"query": "Fela Kuti",             "expect": ["african literature", "africa"],          "why": "Afrobeat's founder should reach African books or art"},
+    {"query": "Paco de Lucía",         "expect": ["latin american literature", "latin america", "folk art"], "why": "flamenco should reach Hispanic books or art"},
+    {"query": "Miles Davis",           "expect": ["jazz"],                                  "why": "should reach books about jazz"},
+    {"query": "Ravi Shankar",          "expect": ["south asian fiction", "india"],          "why": "should reach South Asian books or Indian art"},
+    {"query": "Muddy Waters",          "expect": ["blues", "jazz"],                         "why": "should reach books about blues"}
+  ]
+}
