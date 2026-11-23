@@ -198,6 +198,7 @@ let method = null, center = null, data = null, trail = [], token = 0;
 const cache = new Map();   // ref|method -> graph, so revisits and the back button are instant
 
 async function api(path) {
+  if (window.signalsStatic) return window.signalsStatic(path);  // GitHub Pages build (docs/)
   const r = await fetch(path);
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();

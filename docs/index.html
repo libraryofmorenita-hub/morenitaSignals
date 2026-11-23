@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morenita Signals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;1,6..96,400&family=Inter+Tight:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08080a; --panel: #111114; --ink: #f2eee8; --dim: #8e877c; --faint: #4a4640; --line: rgba(242,238,232,.12);
+    --book: #e8dcc8; --art: #c98b6b; --music: #8fb3d9; --accent: #c98b6b;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: 'Inter Tight', system-ui, sans-serif; font-weight: 300; }
+  button { font: inherit; color: inherit; }
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 380px; height: 100vh; }
+
+  /* ── stage ── */
+  .stage { position: relative; overflow: hidden; }
+  header { position: absolute; inset: 22px 28px auto 28px; display: flex; gap: 14px 22px; align-items: center; flex-wrap: wrap; z-index: 3; pointer-events: none; }
+  header > * { pointer-events: auto; }
+  h1 { margin: 0; font-family: 'Bodoni Moda', Georgia, serif; font-weight: 400; font-size: 26px; letter-spacing: -.01em; white-space: nowrap; }
+  h1 i { color: var(--dim); }
+  .search { position: relative; }
+  .search input { font: inherit; font-size: 14px; color: var(--ink); background: rgba(17,17,20,.9); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; width: 300px; outline: none; }
+  .search input:focus { border-color: var(--accent); }
+  .suggest { position: absolute; top: 44px; left: 0; width: 400px; max-width: 80vw; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+  .suggest[hidden] { display: none; }
+  .suggest button { display: flex; width: 100%; gap: 10px; align-items: center; text-align: left; font-size: 13px; background: none; border: 0; padding: 9px 12px; cursor: pointer; }
+  .suggest button[aria-selected="true"], .suggest button:hover { background: rgba(201,139,107,.14); }
+  .suggest small { color: var(--dim); margin-left: auto; white-space: nowrap; }
+  .dot { width: 9px; height: 9px; flex: none; }
+  .dot.book { background: var(--book); border-radius: 50%; } .dot.art { background: var(--art); border-radius: 2px; } .dot.music { background: var(--music); transform: rotate(45deg) scale(.85); }
+  .methods { display: flex; gap: 2px; font-size: 13px; }
+  .methods button { color: var(--dim); background: none; border: 0; border-bottom: 1px solid transparent; padding: 4px 8px; cursor: pointer; }
+  .methods button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .methods button:disabled { opacity: .35; cursor: not-allowed; }
+
+  svg { width: 100%; height: 100%; display: block; cursor: grab; }
+  svg:active { cursor: grabbing; }
+  .edge { fill: none; stroke: var(--ink); stroke-opacity: .12; transition: stroke-opacity .2s, stroke .2s; }
+  .edge.bridge { stroke: var(--accent); stroke-opacity: .32; }
+  .edge.r2 { stroke-opacity: .1; }
+  .edge.hot { stroke-opacity: .95; }
+  .dimmed .edge:not(.hot) { stroke-opacity: .05; }
+  .node { cursor: pointer; transition: opacity .25s; }
+  .dimmed .node:not(.hot):not(.center) { opacity: .35; }
+  .node .shape { stroke: var(--bg); stroke-width: 2; transition: stroke .2s; }
+  .node.book .shape { fill: var(--book); } .node.music .shape { fill: var(--music); } .node.art .shape { fill: var(--art); }
+  .node.hot .shape, .node:focus-visible .shape { stroke: var(--ink); }
+  .node:focus { outline: none; }
+  .node text { font-size: 11px; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; transition: opacity .2s; }
+  .node.r2 text { opacity: 0; }
+  .node.r2.hot text { opacity: 1; }
+  .node.center text { font-family: 'Bodoni Moda', Georgia, serif; font-size: 18px; }
+  .halo { fill: var(--accent); opacity: .12; }
+
+  .loading { position: absolute; left: 28px; top: 112px; font-size: 12px; color: var(--dim); opacity: 0; transition: opacity .2s; }
+  .loading.on { opacity: 1; }
+  .empty { position: absolute; left: 50%; top: 55%; transform: translateX(-50%); color: var(--dim); font-size: 14px; text-align: center; max-width: 380px; line-height: 1.6; }
+  .tools { position: absolute; right: 18px; bottom: 18px; display: flex; gap: 6px; }
+  .tools button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: rgba(17,17,20,.9); cursor: pointer; font-size: 15px; }
+  .tools button:hover { border-color: var(--accent); }
+  #info { font-family: 'Bodoni Moda', Georgia, serif; font-style: italic; }
+  .legend { position: absolute; left: 28px; bottom: 22px; display: flex; gap: 16px; font-size: 12px; color: var(--dim); align-items: center; flex-wrap: wrap; }
+  .legend span { display: inline-flex; gap: 6px; align-items: center; }
+  .legend .bridge-key { color: var(--accent); }
+
+  /* ── panel ── */
+  aside { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .trail { display: flex; gap: 4px; align-items: center; padding: 16px 22px 0; font-size: 12px; color: var(--dim); min-height: 34px; flex-wrap: wrap; }
+  .trail button { background: none; border: 0; color: var(--dim); cursor: pointer; padding: 2px 0; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trail button:hover { color: var(--ink); }
+  .trail .sep { color: var(--faint); }
+  .work { padding: 14px 22px 18px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+  .kind { font-size: 12px; color: var(--dim); display: flex; gap: 8px; align-items: center; }
+  .work h2 { margin: 0; font-family: 'Bodoni Moda', Georgia, serif; font-weight: 400; font-size: 27px; line-height: 1.12; text-wrap: balance; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .by { font-size: 14px; color: var(--dim); }
+  .work img { width: 100%; max-height: 190px; object-fit: contain; border-radius: 4px; background: #18181c; }
+  .work a { color: var(--ink); font-size: 13px; }
+  .links { overflow-y: auto; padding: 14px 10px 22px; flex: 1; }
+  .links h3 { margin: 6px 12px 8px; font-size: 12px; font-weight: 400; color: var(--dim); }
+  .link { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 4px 10px; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer; align-items: center; }
+  .link:hover, .link.hot, .link:focus-visible { background: rgba(201,139,107,.12); outline: none; }
+  .link .t { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .link .s { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .link .why { grid-column: 2 / 4; font-size: 11.5px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .note { font-size: 11.5px; color: var(--dim); line-height: 1.6; padding: 12px 22px 18px; border-top: 1px solid var(--line); }
+
+  .tip { position: absolute; pointer-events: none; background: rgba(17,17,20,.96); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; max-width: 260px; line-height: 1.45; z-index: 5; opacity: 0; transition: opacity .12s; }
+  .tip.on { opacity: 1; }
+  .tip b { font-weight: 500; display: block; margin-bottom: 2px; }
+  .tip span { color: var(--dim); }
+
+  .about { position: absolute; inset: 0; z-index: 8; background: rgba(8,8,10,.86); backdrop-filter: blur(6px); display: grid; place-items: center; padding: 24px; }
+  .about[hidden] { display: none; }
+  .about article { max-width: 560px; max-height: 100%; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px 28px; line-height: 1.6; font-size: 14px; }
+  .about h2 { font-family: 'Bodoni Moda', Georgia, serif; font-weight: 400; font-size: 26px; margin: 0 0 6px; }
+  .about dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 14px 0; }
+  .about dt { color: var(--accent); }
+  .about dd { margin: 0; color: var(--dim); }
+  .about p { margin: 10px 0; color: var(--dim); }
+  .about p b { color: var(--ink); font-weight: 400; }
+  .about .close { float: right; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 12px; }
+  .toast { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); background: var(--ink); color: var(--bg); font-size: 12px; padding: 7px 14px; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9; }
+  .toast.on { opacity: 1; }
+  .note .touch { display: none; }
+  @media (hover: none) { .note .fine { display: none; } .note .touch { display: inline; } }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 64vh auto; height: auto; }
+    aside { border-left: 0; border-top: 1px solid var(--line); }
+    .links { overflow: visible; }
+  }
+  @media (max-width: 560px) {
+    header { inset: 14px 16px auto 16px; gap: 10px; }
+    h1 { font-size: 21px; }
+    h1 i { display: none; }
+    .search { flex: 1 1 100%; order: 3; }
+    .search input { width: 100%; }
+    .suggest { width: 100%; max-width: none; }
+    .methods { order: 2; margin-left: auto; }
+    .methods button { padding: 4px 5px; }
+    .legend { display: none; }
+    .loading { top: 128px; left: 16px; }
+    .work h2 { font-size: 23px; }
+    .trail, .work { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .edge, .node, .node text { transition: none; } }
+</style>
+<script src="static-api.js"></script>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <header>
+      <h1>Signals <i>across art forms</i></h1>
+      <div class="search">
+        <input id="q" type="search" placeholder="Search a book, artwork or musician" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-controls="suggest" aria-label="Search works">
+        <div class="suggest" id="suggest" role="listbox" hidden></div>
+      </div>
+      <div class="methods" role="group" aria-label="How works are matched">
+        <button data-m="tags" title="Works that share exact subject tags">Shared tags</button>
+        <button data-m="meaning" title="Works whose descriptions mean similar things">Meaning</button>
+        <button data-m="blend" title="Shared tags and meaning together">Blend</button>
+      </div>
+    </header>
+    <div class="loading" id="loading">Finding links…</div>
+    <svg id="svg" aria-label="Constellation of related works"></svg>
+    <div class="empty" id="empty" hidden></div>
+    <div class="tip" id="tip"></div>
+    <div class="toast" id="toast" role="status"></div>
+    <div class="about" id="about" hidden role="dialog" aria-modal="true" aria-labelledby="about-h">
+      <article>
+        <button class="close" id="about-close">Close</button>
+        <h2 id="about-h">How Signals finds links</h2>
+        <p id="about-count">Signals holds books, artworks and musicians from collections across cultures.</p>
+        <dl>
+          <dt>Shared tags</dt><dd>Two works carry the same subject tags from their catalogs. Exact and explainable, but it misses links that are worded differently.</dd>
+          <dt>Meaning</dt><dd>Each work's description is turned into a point in a space of meaning by a small language model; nearby points are related even when no words match.</dd>
+          <dt>Blend</dt><dd>Both together: 40% shared tags, 60% meaning. The default.</dd>
+        </dl>
+        <p><b>Bridges</b> are the strongest links to a different art form: a novel to a painting, a painting to a musician. <b>Close kin</b> are the nearest works of the same kind. Scores run from 0 to 1; links below a floor are never drawn.</p>
+        <p>The catalogs carry their own blind spots. Some collections are thin, and catalog tags reflect who did the cataloging. Signals shows what the data supports, and says why every link exists.</p>
+      </article>
+    </div>
+    <div class="legend">
+      <span><i class="dot book"></i>Book</span><span><i class="dot art"></i>Artwork</span><span><i class="dot music"></i>Musician</span>
+      <span class="bridge-key">— bridge to another art form</span>
+    </div>
+    <div class="tools">
+      <button id="info" title="How Signals finds links" aria-label="How Signals finds links">i</button>
+      <button id="share" title="Copy a link to this view" aria-label="Copy a link to this view">⧉</button>
+      <button id="fit" title="Fit to view" aria-label="Fit to view">⤢</button>
+      <button id="shuffle" title="Show me something" aria-label="Open a random featured work">✦</button>
+    </div>
+  </div>
+  <aside>
+    <nav class="trail" id="trail" aria-label="Works you have visited"></nav>
+    <section class="work" id="work" aria-live="polite"></section>
+    <div class="links" id="links"></div>
+    <p class="note"><span class="fine">Hover a work or a line to see what two works share. Click a work to move there. Drag to pan, scroll to zoom.</span><span class="touch">Tap a work to move there. Drag to pan, pinch to zoom.</span></p>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+const KIND = { book: 'Book', art: 'Artwork', music: 'Musician' };
+const FEATURED = ['Things Fall Apart', 'Fela Kuti', 'Blues people', 'Ways of Seeing', 'Paco de Lucía', 'One Hundred Years of Solitude'];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const short = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+
+let method = null, center = null, data = null, trail = [], token = 0;
+const cache = new Map();   // ref|method -> graph, so revisits and the back button are instant
+
+async function api(path) {
+  if (window.signalsStatic) return window.signalsStatic(path);  // GitHub Pages build (docs/)
+  const r = await fetch(path);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
+/* ── the map: one persistent simulation, nodes keep their places between works ── */
+const svg = d3.select('#svg');
+const root = svg.append('g');
+const edgeLayer = root.append('g'), nodeLayer = root.append('g');
+const zoom = d3.zoom().scaleExtent([0.35, 3]).on('zoom', (e) => root.attr('transform', e.transform));
+svg.call(zoom).on('dblclick.zoom', null);
+const pos = new Map();   // key -> {x, y}: remembered so a work that stays on screen doesn't jump
+let nodes = [], links = [];
+
+const sim = d3.forceSimulation()
+  .force('link', d3.forceLink().id((d) => d.key).distance((l) => (l.kind === 'kin' ? 105 : l.target.ring === 2 ? 95 : 175)).strength((l) => (l.target.ring === 2 ? 0.5 : 0.8)))
+  .force('charge', d3.forceManyBody().strength((d) => (d.ring === 0 ? -900 : d.ring === 1 ? -420 : -160)))
+  .force('collide', d3.forceCollide().radius((d) => (d.ring === 2 ? 22 : 46)).strength(0.9))
+  .force('radial', d3.forceRadial((d) => [0, 200, 330][d.ring], 0, 0).strength((d) => (d.ring === 0 ? 0 : 0.35)))
+  .alphaDecay(0.045).velocityDecay(0.42)
+  .on('tick', ticked).on('end', () => { if (fitPending) fit(); });
+let fitPending = false;
+
+function size(d) { return d.ring === 0 ? 24 : d.ring === 1 ? 13 : 8; }
+
+function shape(sel) {
+  sel.each(function (d) {
+    const el = d3.select(this); el.selectAll('*').remove();
+    const r = size(d);
+    if (d.ring === 0) el.append('circle').attr('class', 'halo').attr('r', r + 16);
+    if (d.domain === 'art') {
+      el.append('rect').attr('class', 'shape').attr('x', -r - 1).attr('y', -r - 1).attr('width', 2 * r + 2).attr('height', 2 * r + 2).attr('rx', 3);
+      if (d.image) {
+        const id = 'c' + d.key.replace(/\W/g, '') + d.ring;
+        el.append('clipPath').attr('id', id).append('rect').attr('x', -r).attr('y', -r).attr('width', 2 * r).attr('height', 2 * r).attr('rx', 2);
+        el.append('image').attr('href', d.image).attr('x', -r).attr('y', -r).attr('width', 2 * r).attr('height', 2 * r)
+          .attr('preserveAspectRatio', 'xMidYMid slice').attr('clip-path', `url(#${id})`)
+          .on('error', function () { d3.select(this).remove(); });
+      }
+    } else if (d.domain === 'music') {
+      el.append('rect').attr('class', 'shape').attr('x', -r * 0.82).attr('y', -r * 0.82).attr('width', r * 1.64).attr('height', r * 1.64).attr('transform', 'rotate(45)');
+    } else el.append('circle').attr('class', 'shape').attr('r', r);
+    el.append('text').attr('y', r + (d.ring === 0 ? 24 : 15)).attr('text-anchor', 'middle').text(short(d.title, d.ring === 0 ? 40 : 26));
+  });
+}
+
+function render(from) {
+  // Keep positions of works already on screen; new works grow out of the work you clicked.
+  const origin = pos.get(from) || { x: 0, y: 0 };
+  nodes = data.nodes.map((n) => {
+    const p = pos.get(n.key) || { x: origin.x + (Math.random() - 0.5) * 40, y: origin.y + (Math.random() - 0.5) * 40 };
+    return { ...n, x: p.x, y: p.y };
+  });
+  const byKey = new Map(nodes.map((n) => [n.key, n]));
+  const c = byKey.get(data.center); c.fx = 0; c.fy = 0;
+  links = data.edges.filter((e) => byKey.has(e.source) && byKey.has(e.target)).map((e) => ({ ...e }));
+  // ring 2 links get their own class so they stay quiet
+  links.forEach((l) => { l.r2 = byKey.get(l.target).ring === 2; });
+
+  const edge = edgeLayer.selectAll('path').data(links, (l) => l.source + '>' + l.target)
+    .join((enter) => enter.append('path').attr('stroke-opacity', 0).call((s) => s.transition().duration(reduce ? 0 : 500).attr('stroke-opacity', null)))
+    .attr('class', (l) => `edge ${l.kind}${l.r2 ? ' r2' : ''}`)
+    .attr('stroke-width', (l) => 0.8 + l.score * 5)
+    .on('mouseenter', (e, l) => hoverLink(e, l)).on('mousemove', moveTip).on('mouseleave', clearHover);
+
+  const node = nodeLayer.selectAll('g.node').data(nodes, (d) => d.key)
+    .join(
+      (enter) => enter.append('g').attr('opacity', 0).call((s) => s.transition().duration(reduce ? 0 : 450).attr('opacity', 1)),
+      (update) => update,
+      (exit) => exit.transition().duration(reduce ? 0 : 250).attr('opacity', 0).remove())
+    .attr('class', (d) => `node ${d.domain} r${d.ring}${d.ring === 0 ? ' center' : ''}`)
+    .attr('tabindex', 0).attr('role', 'button')
+    .attr('aria-label', (d) => `${KIND[d.domain]}: ${d.title}${d.ring ? '. Press Enter to move here.' : ''}`)
+    .on('click', (e, d) => go(d.key))
+    .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(d.key); } })
+    .on('mouseenter focus', (e, d) => hoverNode(e, d)).on('mousemove', moveTip).on('mouseleave blur', clearHover)
+    .call(shape)
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; hideTip(); })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); if (d.ring !== 0) { d.fx = null; d.fy = null; } }));
+
+  sim.nodes(nodes);
+  sim.force('link').links(links);
+  fitPending = true;
+  if (reduce) { sim.alpha(1).stop(); for (let i = 0; i < 300; i++) sim.tick(); ticked(); fit(); }
+  else sim.alpha(0.9).restart();
+  setTimeout(() => fitPending && fit(), 1400);  // don't wait for a long tail to settle
+}
+
+function ticked() {
+  edgeLayer.selectAll('path').attr('d', (l) => {
+    const s = l.source, t = l.target, dx = t.x - s.x, dy = t.y - s.y, dr = Math.hypot(dx, dy) * 2.2;
+    return `M${s.x},${s.y}A${dr},${dr} 0 0,1 ${t.x},${t.y}`;   // a gentle arc reads better than straight spokes
+  });
+  nodeLayer.selectAll('g.node').attr('transform', (d) => { pos.set(d.key, { x: d.x, y: d.y }); return `translate(${d.x},${d.y})`; });
+}
+
+function fit() {
+  fitPending = false;
+  const { width, height } = $('stage').getBoundingClientRect();
+  if (!nodes.length) return;
+  const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
+  const pad = 90, top = 120;
+  const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+  const k = Math.min(1.25, Math.max(0.35, Math.min(width / (x1 - x0), (height - top) / (y1 - y0))));
+  const t = d3.zoomIdentity.translate(width / 2 - k * (x0 + x1) / 2, top + (height - top) / 2 - k * (y0 + y1) / 2).scale(k);
+  svg.transition().duration(reduce ? 0 : 700).ease(d3.easeCubicOut).call(zoom.transform, t);
+}
+
+/* ── hover: highlight a work's own lines, show why, never rewrite the panel ── */
+function neighbors(d) {
+  const set = new Set([d.key]);
+  links.forEach((l) => { if (l.source.key === d.key) set.add(l.target.key); if (l.target.key === d.key) set.add(l.source.key); });
+  return set;
+}
+function hoverNode(e, d) {
+  const near = neighbors(d);
+  root.classed('dimmed', true);
+  nodeLayer.selectAll('g.node').classed('hot', (n) => near.has(n.key));
+  edgeLayer.selectAll('path').classed('hot', (l) => l.source.key === d.key || l.target.key === d.key);
+  document.querySelectorAll('.link').forEach((b) => b.classList.toggle('hot', b.dataset.key === d.key));
+  const l = links.find((x) => x.target.key === d.key) || links.find((x) => x.source.key === d.key);
+  showTip(e, `<b>${esc(d.title)}</b><span>${esc(KIND[d.domain])}${d.author && d.author !== d.title ? ', ' + esc(d.author) : ''}${d.ring && l ? '<br>' + why(l) : ''}</span>`);
+}
+function hoverLink(e, l) {
+  root.classed('dimmed', true);
+  nodeLayer.selectAll('g.node').classed('hot', (n) => n === l.source || n === l.target);
+  edgeLayer.selectAll('path').classed('hot', (x) => x === l);
+  showTip(e, `<b>${esc(short(l.source.title, 30))} ↔ ${esc(short(l.target.title, 30))}</b><span>${why(l)}</span>`);
+}
+function why(l) {
+  return l.shared && l.shared.length ? 'Shares: ' + l.shared.slice(0, 4).map(esc).join(', ') : 'Close in meaning, no shared tags';
+}
+function clearHover() {
+  root.classed('dimmed', false);
+  nodeLayer.selectAll('g.node').classed('hot', false);
+  edgeLayer.selectAll('path').classed('hot', false);
+  document.querySelectorAll('.link.hot').forEach((b) => b.classList.remove('hot'));
+  hideTip();
+}
+const tip = $('tip');
+function showTip(e, html) { tip.innerHTML = html; tip.classList.add('on'); moveTip(e); }
+function moveTip(e) {
+  const r = $('stage').getBoundingClientRect(), x = (e.clientX ?? r.left + r.width / 2) - r.left, y = (e.clientY ?? r.top + r.height / 2) - r.top;
+  tip.style.left = Math.min(x + 14, r.width - 270) + 'px'; tip.style.top = Math.min(y + 14, r.height - 80) + 'px';
+}
+function hideTip() { tip.classList.remove('on'); }
+
+/* ── panel: the center work, then its links as a readable list ── */
+function panel() {
+  const d = data.nodes.find((n) => n.key === data.center);
+  const meta = [KIND[d.domain], d.collection && 'from the ' + d.collection + ' collection', d.year > 0 && d.year].filter(Boolean).join(', ');
+  $('work').innerHTML = `<div class="kind"><i class="dot ${d.domain}"></i>${esc(meta)}</div><h2 title="${esc(d.title)}">${esc(d.title)}</h2>`
+    + (d.author && d.author !== d.title ? `<div class="by">${esc(d.author)}</div>` : '')
+    + (d.image ? `<img src="${esc(d.image)}" alt="${esc(d.title)}" onerror="this.remove()">` : '')
+    + (d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">View at The Met ↗</a>` : '');
+  const first = data.edges.filter((e) => e.source === data.center);
+  const byKey = new Map(data.nodes.map((n) => [n.key, n]));
+  const group = (kind, title) => {
+    const rows = first.filter((e) => e.kind === kind).sort((a, b) => b.score - a.score);
+    if (!rows.length) return '';
+    return `<h3>${title}</h3>` + rows.map((e) => {
+      const n = byKey.get(e.target);
+      return `<button class="link" data-key="${esc(n.key)}"><i class="dot ${n.domain}"></i><span class="t">${esc(n.title)}</span><span class="s" title="How closely linked, from 0 to 1">${e.score.toFixed(2)}</span><span class="why">${why(e)}</span></button>`;
+    }).join('');
+  };
+  $('links').innerHTML = group('bridge', 'Bridges to other art forms') + group('kin', 'Close kin') || '<h3>No strong links yet. Try Meaning or Blend.</h3>';
+  $('links').querySelectorAll('.link').forEach((b) => {
+    const n = nodes.find((x) => x.key === b.dataset.key);
+    b.onclick = () => go(b.dataset.key);
+    b.onmouseenter = () => {
+      if (!n) return;
+      // place the tooltip beside the work on the map, not in the middle of the stage
+      const z = d3.zoomTransform(svg.node()), r = $('stage').getBoundingClientRect();
+      hoverNode({ clientX: r.left + z.applyX(n.x), clientY: r.top + z.applyY(n.y) }, n);
+    };
+    b.onmouseleave = clearHover;
+  });
+}
+
+function drawTrail() {
+  $('trail').innerHTML = trail.map((t, i) => i === trail.length - 1
+    ? `<span style="color:var(--ink)">${esc(short(t.title, 22))}</span>`
+    : `<button data-i="${i}" title="${esc(t.title)}">${esc(short(t.title, 22))}</button><span class="sep">›</span>`).join('');
+  $('trail').querySelectorAll('button').forEach((b) => b.onclick = () => { const i = +b.dataset.i; const t = trail[i]; trail = trail.slice(0, i); go(t.key); });
+}
+
+/* ── moving between works ── */
+async function go(ref, opts = {}) {
+  const my = ++token, from = center;
+  clearHover(); $('loading').classList.add('on');
+  let g;
+  const ck = ref + '|' + (method || '');
+  try { g = cache.get(ck) || await api('/graph?ref=' + encodeURIComponent(ref) + (method ? '&method=' + method : '')); cache.set(ck, g); }
+  catch (err) { if (my === token) { $('loading').classList.remove('on'); $('empty').hidden = false; $('empty').textContent = err.message; } return; }
+  if (my !== token) return;          // a newer click won; drop this answer
+  $('loading').classList.remove('on');
+  data = g; center = g.center;
+  const c = g.nodes.find((n) => n.key === center);
+  const at = trail.findIndex((t) => t.key === center);
+  if (opts.fromHistory && at >= 0) trail = trail.slice(0, at + 1);   // the back button walks the trail backwards
+  else if (!opts.keepTrail && (!trail.length || trail[trail.length - 1].key !== center)) trail = [...trail, { key: center, title: c.title }].slice(-6);
+  const url = '?ref=' + encodeURIComponent(center) + (method ? '&method=' + method : '');
+  if (location.search !== url) history[opts.fromHistory || !from ? 'replaceState' : 'pushState']({ ref: center, method }, '', url);
+  $('empty').hidden = g.edges.length > 0;
+  if (!g.edges.length) $('empty').textContent = 'No strong links for this work yet. Try Meaning or Blend, or another work.';
+  // the work you clicked slides to the middle; everything else rearranges around it
+  if (from && pos.has(center)) {
+    const p = pos.get(center);
+    pos.forEach((v, k) => pos.set(k, { x: v.x - p.x, y: v.y - p.y }));
+  }
+  render(center); panel(); drawTrail(); clearHover();
+}
+
+/* ── search with keyboard support ── */
+const q = $('q'), sug = $('suggest');
+let tq = null, active = -1;
+function closeSug() { sug.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; }
+q.addEventListener('input', () => {
+  clearTimeout(tq);
+  if (q.value.trim().length < 2) return closeSug();
+  tq = setTimeout(async () => {
+    const term = q.value.trim();
+    const { results } = await api('/search?n=8&q=' + encodeURIComponent(term));
+    if (q.value.trim() !== term) return;
+    sug.innerHTML = results.length
+      ? results.map((r, i) => `<button role="option" id="opt${i}" data-key="${esc(r.key)}" aria-selected="false"><i class="dot ${r.domain}"></i>${esc(short(r.title, 46))}<small>${esc(r.author && r.author !== r.title ? short(r.author, 22) : KIND[r.domain])}</small></button>`).join('')
+      : '<button disabled>No matches. Try a shorter word.</button>';
+    sug.hidden = false; q.setAttribute('aria-expanded', 'true'); active = -1;
+    sug.querySelectorAll('button[data-key]').forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pick(b); });
+  }, 160);
+});
+function pick(b) { closeSug(); q.value = ''; q.blur(); go(b.dataset.key); }
+q.addEventListener('keydown', (e) => {
+  const opts = [...sug.querySelectorAll('button[data-key]')];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault(); if (!opts.length) return;
+    active = (active + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+    opts.forEach((b, i) => b.setAttribute('aria-selected', i === active));
+    q.setAttribute('aria-activedescendant', opts[active].id);
+  } else if (e.key === 'Enter') { const b = opts[active] || opts[0]; if (b) pick(b); }
+  else if (e.key === 'Escape') { closeSug(); q.blur(); }
+});
+q.addEventListener('blur', () => setTimeout(closeSug, 120));
+document.addEventListener('keydown', (e) => { if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); q.focus(); } });
+
+/* ── controls ── */
+$('fit').onclick = fit;
+const about = $('about');
+function openAbout() { about.hidden = false; $('about-close').focus(); }
+function closeAbout() { about.hidden = true; $('info').focus(); }
+$('info').onclick = openAbout;
+$('about-close').onclick = closeAbout;
+about.addEventListener('click', (e) => { if (e.target === about) closeAbout(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !about.hidden) closeAbout(); });
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 1800); }
+$('share').onclick = async () => {
+  try { await navigator.clipboard.writeText(location.href); toast('Link copied'); }
+  catch { toast(location.href); }
+};
+addEventListener('popstate', (e) => {
+  const st = e.state || Object.fromEntries(new URLSearchParams(location.search));
+  if (!st.ref) return;
+  if ((st.method || null) !== method) { method = st.method || null; syncMethods(); }
+  go(st.ref, { fromHistory: true });
+});
+$('shuffle').onclick = () => { const pick = FEATURED.filter((f) => f.toLowerCase() !== (data && data.nodes.find((n) => n.key === center).title.toLowerCase()))[Math.floor(Math.random() * (FEATURED.length - 1))]; go(pick); };
+let rz = null;
+addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(fit, 150); });
+
+let defaultMethod = 'tags';
+function syncMethods() {
+  document.querySelectorAll('.methods button').forEach((x) => x.setAttribute('aria-pressed', x.dataset.m === (method || defaultMethod)));
+}
+api('/').then((info) => {
+  defaultMethod = info.method;
+  const d = info.domains || {};
+  $('about-count').textContent = `Signals holds ${(d.book || 0).toLocaleString()} books, ${(d.art || 0).toLocaleString()} artworks and ${(d.music || 0).toLocaleString()} musicians from ${info.collections.length} collections, drawn from Open Library, The Met and MusicBrainz.`;
+  const params = new URLSearchParams(location.search);
+  const want = params.get('method');
+  document.querySelectorAll('.methods button').forEach((b) => {
+    if (info.method === 'tags' && b.dataset.m !== 'tags') { b.disabled = true; b.title = 'Run python -m src.model.embeddings to turn this on'; }
+    b.onclick = () => {
+      method = b.dataset.m === defaultMethod ? null : b.dataset.m;
+      syncMethods();
+      if (center) go(center, { keepTrail: true });
+    };
+  });
+  if (want && want !== info.method && !(info.method === 'tags')) method = want;
+  syncMethods();
+  go(params.get('ref') || FEATURED[Math.floor(Math.random() * FEATURED.length)]);
+});
+</script>
+</body>
+</html>
