@@ -4,6 +4,8 @@ A cultural intelligence ML pipeline that maps relationships between creative wor
 
 Built to power personalized learning journeys on [Library of Morenita](https://libraryofmorenita-hub.github.io/muses-of-morenita).
 
+**[Try the explorer live](https://libraryofmorenita-hub.github.io/morenitaSignals/)**: search a book, an artwork or a musician and follow its links across art forms, right in your browser.
+
 ---
 
 ## What it does
@@ -44,8 +46,8 @@ morenita-signals/
 ## Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/morenita-signals.git
-cd morenita-signals
+git clone https://github.com/libraryofmorenita-hub/morenitaSignals.git
+cd morenitaSignals
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -116,6 +118,13 @@ once you've run `python -m src.model.embeddings`.
 Every view has its own link (the ⧉ button copies it), the browser's back
 button walks back along your trail, and the *i* button explains how links are
 found. It works on a phone too.
+
+**Static build for GitHub Pages.** `python tools/build_static.py` runs the
+recommender once for every work and writes `docs/`: the explorer page, the
+works table and each work's nearest neighbors for all three methods (about
+5 MB). `docs/static-api.js` then answers the explorer's requests in the
+browser with the same rules as the API, so the live demo needs no server.
+Rebuild `docs/` whenever the data, embeddings or scoring change.
 
 ## Scorecard
 
