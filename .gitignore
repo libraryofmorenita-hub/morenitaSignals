@@ -45,3 +45,6 @@ Thumbs.db
 # Env vars — never commit secrets
 .env
 *.env
+
+# iCloud-excluded dependency folders
+*.nosync
