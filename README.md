@@ -76,12 +76,13 @@ uvicorn api.main:app --reload
 
 ## Status
 
-- [x] Stage 1 — Data collection *(Open Library: 7 collections, 3,130 works. Met Museum and MusicBrainz collectors written; run them to add art and music)*
-- [x] Stage 2 — Pipeline + cleaning *(books, artworks and musicians in one table, each tagged with its domain and collection)*
-- [x] Stage 3 — EDA *(NLP/keyword extraction not started)*
-- [x] Stage 4 — Recommender *(TF-IDF + cosine similarity with cross-collection bridges and explanations, not yet the embeddings/clustering originally planned)*
-- [x] Stage 5 — API *(`/search`, `/recommend`, `/bridges`, `/graph`, with tests)* and the explorer at `/explore`
-- [ ] Next — run the Met and MusicBrainz collectors, sentence-transformer embeddings, dashboard
+- [x] Stage 1: Data collection *(6,796 works from 20 collections: 3,130 books from Open Library, 1,058 artworks from the Met Museum, 2,608 musicians and recordings from MusicBrainz)*
+- [x] Stage 2: Pipeline and cleaning *(books, artworks and music in one table, each tagged with its domain and collection)*
+- [x] Stage 3: EDA *(notebooks; NLP keyword extraction not started)*
+- [x] Stage 4: Recommender *(TF-IDF on subject tags, sentence-transformer embeddings, and a blend of both, with explanations for every link)*
+- [x] Stage 5: API *(`/search`, `/recommend`, `/bridges`, `/graph`)*, the explorer, and the [live static build](https://libraryofmorenita-hub.github.io/morenitaSignals/)
+- [x] Tests *(`python -m pytest`, including a check that the live explorer draws the same graphs as the API)*
+- [ ] Next: clustering, NLP keyword extraction, more probes for the scorecard
 
 ## How it recommends
 
