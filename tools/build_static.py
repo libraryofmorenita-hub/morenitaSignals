@@ -26,7 +26,6 @@ sys.path.insert(0, str(ROOT))
 from src.model.recommender import MIN_SCORE, Recommender  # noqa: E402
 
 DOCS = ROOT / "docs"
-DATA = DOCS / "data"
 BRIDGES = 10  # cross-domain candidates per work (the graph uses 6, plus room for exclusions)
 NEAR = 3      # nearest works of any domain (the graph keeps those in the same domain)
 
@@ -50,9 +49,10 @@ def neighbor_rows(rec: Recommender, idx: int, method: str, across: str | None, n
     return out
 
 
-def main() -> None:
-    rec = Recommender.build()
-    DATA.mkdir(parents=True, exist_ok=True)
+def build(rec: Recommender, docs: Path = DOCS) -> None:
+    """Write the static site for this recommender into docs (the tests use a temp folder)."""
+    data = docs / "data"
+    data.mkdir(parents=True, exist_ok=True)
     df = rec.df
     methods = ["tags"] if rec.embeddings is None else ["tags", "meaning", "blend"]
 
@@ -62,14 +62,13 @@ def main() -> None:
         card["subjects"] = [str(s) for s in df.at[i, "subjects"]]
         card["editions"] = int(df.at[i, "edition_count"] or 0)
         works.append(card)
-    (DATA / "works.json").write_text(json.dumps(works, separators=(",", ":"), ensure_ascii=False))
+    (data / "works.json").write_text(json.dumps(works, separators=(",", ":"), ensure_ascii=False))
 
     for m in methods:
         rows = []
         for i in range(len(df)):
             rows.append([neighbor_rows(rec, i, m, "domain", BRIDGES), neighbor_rows(rec, i, m, None, NEAR)])
-        (DATA / f"neighbors-{m}.json").write_text(json.dumps(rows, separators=(",", ":")))
-        print(f"{m}: done")
+        (data / f"neighbors-{m}.json").write_text(json.dumps(rows, separators=(",", ":")))
 
     info = {
         "message": "Morenita Signals (static build)",
@@ -79,14 +78,18 @@ def main() -> None:
         "method": rec.default_method,
         "methods": methods,
     }
-    (DATA / "info.json").write_text(json.dumps(info, separators=(",", ":")))
+    (data / "info.json").write_text(json.dumps(info, separators=(",", ":")))
 
     page = (ROOT / "web" / "explore.html").read_text()
     page = page.replace("</head>", '<script src="static-api.js"></script>\n</head>', 1)
-    (DOCS / "index.html").write_text(page)
-    (DOCS / ".nojekyll").write_text("")
-    size = sum(p.stat().st_size for p in DATA.iterdir())
-    print(f"docs/ written: {len(df)} works, {size / 1e6:.1f} MB of data")
+    (docs / "index.html").write_text(page)
+    (docs / ".nojekyll").write_text("")
+    size = sum(p.stat().st_size for p in data.iterdir())
+    print(f"{docs.name}/ written: {len(df)} works, {size / 1e6:.1f} MB of data")
+
+
+def main() -> None:
+    build(Recommender.build())
 
 
 if __name__ == "__main__":
